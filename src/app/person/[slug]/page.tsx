@@ -14,18 +14,35 @@ type Soda3Record = {
 
 async function fetchSoda3(): Promise<Soda3Record[]> {
   try {
-    const params = new URLSearchParams({
+    // First, get the latest date available
+    const dateParams = new URLSearchParams({
+      $select: "fecha_corte",
       $order: "fecha_corte DESC",
-      $limit: "200",
+      $limit: "1",
+    });
+    const dateRes = await fetch(
+      `https://www.datos.gov.co/resource/qhpu-8ixx.json?${dateParams}`,
+      {
+        headers: { "X-App-Token": process.env.SODA3_APP_TOKEN || "" },
+        next: { revalidate: 3600 },
+      }
+    );
+    if (!dateRes.ok) return [];
+    const dateData = await dateRes.json();
+    if (!dateData.length) return [];
+    const latestDate = dateData[0].fecha_corte;
+
+    // Then fetch all records for that date (~538 records)
+    const params = new URLSearchParams({
+      $where: `fecha_corte='${latestDate}'`,
+      $limit: "1000",
       $select:
-        "nombre_patrimonio,nombre_entidad,fecha_corte,rentabilidad_diaria,rentabilidad_mensual,rentabilidad_semestral,rentabilidad_anual,valor_unidad_operaciones",
+        "nombre_patrimonio,nombre_entidad,rentabilidad_diaria,rentabilidad_mensual,rentabilidad_semestral,rentabilidad_anual,valor_unidad_operaciones",
     });
     const res = await fetch(
       `https://www.datos.gov.co/resource/qhpu-8ixx.json?${params}`,
       {
-        headers: {
-          "X-App-Token": process.env.SODA3_APP_TOKEN || "",
-        },
+        headers: { "X-App-Token": process.env.SODA3_APP_TOKEN || "" },
         next: { revalidate: 3600 },
       }
     );
