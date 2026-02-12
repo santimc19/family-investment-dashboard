@@ -11,7 +11,7 @@ import {
   Legend,
 } from "recharts";
 
-const COLORS = [
+const PERSON_COLORS = [
   "#f59e0b",
   "#10b981",
   "#6366f1",
@@ -19,25 +19,50 @@ const COLORS = [
   "#8b5cf6",
 ];
 
-export function HistoryChart({
-  data,
-  personNames,
-}: {
+const PLATFORM_COLORS = [
+  "#f59e0b",
+  "#10b981",
+  "#6366f1",
+  "#f43f5e",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
+];
+
+type PlatformInfo = {
   data: Record<string, string | number>[];
+  platforms: string[];
+};
+
+export function HistoryChart({
+  personData,
+  personNames,
+  platformData,
+}: {
+  personData: Record<string, string | number>[];
   personNames: string[];
+  platformData: Record<string, PlatformInfo>;
 }) {
   const [selected, setSelected] = useState<string>("all");
 
-  const filteredData = useMemo(() => {
-    if (selected === "all") return data;
-    return data.map((point) => {
-      const filtered: Record<string, string | number> = { date: point.date };
-      filtered[selected] = point[selected] || 0;
-      return filtered;
-    });
-  }, [data, selected]);
-
-  const visibleNames = selected === "all" ? personNames : [selected];
+  const { chartData, seriesNames, colors } = useMemo(() => {
+    if (selected === "all" || !platformData[selected]) {
+      return {
+        chartData: personData,
+        seriesNames: personNames,
+        colors: PERSON_COLORS,
+      };
+    }
+    const info = platformData[selected];
+    return {
+      chartData: info.data,
+      seriesNames: info.platforms,
+      colors: PLATFORM_COLORS,
+    };
+  }, [selected, personData, personNames, platformData]);
 
   return (
     <div className="space-y-4">
@@ -69,8 +94,14 @@ export function HistoryChart({
         ))}
       </div>
 
+      {selected !== "all" && (
+        <p className="text-xs text-zinc-500">
+          Showing platform breakdown for <span className="text-zinc-300 font-medium">{selected}</span>
+        </p>
+      )}
+
       <ResponsiveContainer width="100%" height={420}>
-        <BarChart data={filteredData}>
+        <BarChart data={chartData}>
           <XAxis
             dataKey="date"
             stroke="#27272a"
@@ -119,22 +150,19 @@ export function HistoryChart({
             iconSize={10}
             wrapperStyle={{ fontSize: "12px", color: "#71717a" }}
           />
-          {visibleNames.map((name) => {
-            const i = personNames.indexOf(name);
-            return (
-              <Bar
-                key={name}
-                dataKey={name}
-                stackId="portfolio"
-                fill={COLORS[i % COLORS.length]}
-                radius={
-                  visibleNames.indexOf(name) === visibleNames.length - 1
-                    ? [4, 4, 0, 0]
-                    : [0, 0, 0, 0]
-                }
-              />
-            );
-          })}
+          {seriesNames.map((name, i) => (
+            <Bar
+              key={name}
+              dataKey={name}
+              stackId="stack"
+              fill={colors[i % colors.length]}
+              radius={
+                i === seriesNames.length - 1
+                  ? [4, 4, 0, 0]
+                  : [0, 0, 0, 0]
+              }
+            />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </div>

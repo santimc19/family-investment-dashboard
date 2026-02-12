@@ -9,35 +9,64 @@ export default async function HistoryPage() {
     getPeople(),
   ]);
 
-  const chartData = new Map<string, Map<string, number>>();
+  // Person-level: { personName -> { date -> totalUsd } }
+  const personMap = new Map<string, Map<string, number>>();
+  // Platform-level per person: { personName -> { platform -> { date -> totalUsd } } }
+  const platformMap = new Map<string, Map<string, Map<string, number>>>();
 
   for (const snap of history) {
     const inv = snap.investments as unknown as {
       person_id: string;
+      platform: string;
       people: { name: string; slug: string };
     };
     const personName = inv.people.name;
+    const platform = inv.platform;
     const date = snap.snapshot_date;
 
-    if (!chartData.has(personName)) {
-      chartData.set(personName, new Map());
-    }
-    const personDates = chartData.get(personName)!;
-    const existing = personDates.get(date) || 0;
-    personDates.set(date, existing + snap.balance_usd);
+    // Person-level aggregation
+    if (!personMap.has(personName)) personMap.set(personName, new Map());
+    const personDates = personMap.get(personName)!;
+    personDates.set(date, (personDates.get(date) || 0) + snap.balance_usd);
+
+    // Platform-level aggregation per person
+    if (!platformMap.has(personName)) platformMap.set(personName, new Map());
+    const personPlatforms = platformMap.get(personName)!;
+    if (!personPlatforms.has(platform)) personPlatforms.set(platform, new Map());
+    const platDates = personPlatforms.get(platform)!;
+    platDates.set(date, (platDates.get(date) || 0) + snap.balance_usd);
   }
 
   const allDates = new Set<string>();
-  chartData.forEach((dates) => dates.forEach((_, d) => allDates.add(d)));
+  personMap.forEach((dates) => dates.forEach((_, d) => allDates.add(d)));
   const sortedDates = Array.from(allDates).sort();
 
-  const rechartsData = sortedDates.map((date) => {
+  // Person-level chart data (for "All Members" view)
+  const personChartData = sortedDates.map((date) => {
     const point: Record<string, string | number> = { date };
-    chartData.forEach((dates, person) => {
+    personMap.forEach((dates, person) => {
       point[person] = dates.get(date) || 0;
     });
     return point;
   });
+
+  // Platform-level chart data per person (for individual person view)
+  const platformChartData: Record<string, {
+    data: Record<string, string | number>[];
+    platforms: string[];
+  }> = {};
+
+  for (const [personName, platforms] of platformMap) {
+    const platformNames = Array.from(platforms.keys()).sort();
+    const data = sortedDates.map((date) => {
+      const point: Record<string, string | number> = { date };
+      for (const [plat, dates] of platforms) {
+        point[plat] = dates.get(date) || 0;
+      }
+      return point;
+    });
+    platformChartData[personName] = { data, platforms: platformNames };
+  }
 
   const personNames = people.map((p) => p.name);
 
@@ -52,9 +81,13 @@ export default async function HistoryPage() {
         </p>
       </div>
 
-      {rechartsData.length > 0 ? (
+      {personChartData.length > 0 ? (
         <div className="p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800/40">
-          <HistoryChart data={rechartsData} personNames={personNames} />
+          <HistoryChart
+            personData={personChartData}
+            personNames={personNames}
+            platformData={platformChartData}
+          />
         </div>
       ) : (
         <div className="p-12 text-center rounded-2xl bg-zinc-900/30 border border-zinc-800/40">
