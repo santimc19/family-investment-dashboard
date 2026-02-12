@@ -5,12 +5,14 @@ export async function getPeople() {
     .from("people")
     .select("*")
     .order("name");
-  if (error) throw error;
+  if (error) {
+    console.error("getPeople error:", error.message);
+    return [];
+  }
   return data;
 }
 
 export async function getPortfolioSummary() {
-  // Get latest snapshot per person with investment details
   const { data, error } = await supabase
     .from("monthly_snapshots")
     .select(
@@ -37,21 +39,25 @@ export async function getPortfolioSummary() {
     )
     .order("snapshot_date", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    console.error("getPortfolioSummary error:", error.message);
+    return [];
+  }
   return data;
 }
 
 export async function getPersonInvestments(personSlug: string) {
-  // Get person
   const { data: person, error: personError } = await supabase
     .from("people")
     .select("*")
     .eq("slug", personSlug)
     .single();
 
-  if (personError) throw personError;
+  if (personError) {
+    console.error("getPersonInvestments person error:", personError.message);
+    return { person: { id: "", name: personSlug, slug: personSlug }, snapshots: [] };
+  }
 
-  // Get latest snapshots for this person's investments
   const { data: snapshots, error: snapError } = await supabase
     .from("monthly_snapshots")
     .select(
@@ -66,7 +72,10 @@ export async function getPersonInvestments(personSlug: string) {
     .eq("investments.person_id", person.id)
     .order("snapshot_date", { ascending: false });
 
-  if (snapError) throw snapError;
+  if (snapError) {
+    console.error("getPersonInvestments snapshots error:", snapError.message);
+    return { person, snapshots: [] };
+  }
 
   return { person, snapshots };
 }
@@ -88,7 +97,10 @@ export async function getHistoricalData() {
     )
     .order("snapshot_date", { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    console.error("getHistoricalData error:", error.message);
+    return [];
+  }
   return data;
 }
 
@@ -99,7 +111,10 @@ export async function getAuditLogs() {
     .order("execution_date", { ascending: false })
     .limit(50);
 
-  if (error) throw error;
+  if (error) {
+    console.error("getAuditLogs error:", error.message);
+    return [];
+  }
   return data;
 }
 
@@ -110,6 +125,9 @@ export async function getLatestSnapshotDate() {
     .order("snapshot_date", { ascending: false })
     .limit(1);
 
-  if (error) throw error;
+  if (error) {
+    console.error("getLatestSnapshotDate error:", error.message);
+    return null;
+  }
   return data?.[0]?.snapshot_date || null;
 }

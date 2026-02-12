@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getPersonInvestments } from "@/lib/queries";
-import { formatUSD, formatDate } from "@/lib/format";
+import { formatUSD } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,6 @@ export default async function PersonPage({
   const { person, snapshots } = await getPersonInvestments(slug);
   const soda3Data = await fetchSoda3();
 
-  // Group snapshots by investment, take latest
   const latestByInvestment = new Map<
     string,
     {
@@ -97,117 +96,153 @@ export default async function PersonPage({
     });
   }
 
-  const investments = Array.from(latestByInvestment.values());
+  const investments = Array.from(latestByInvestment.values()).sort(
+    (a, b) => b.balance_usd - a.balance_usd
+  );
   const totalUsd = investments.reduce((sum, inv) => sum + inv.balance_usd, 0);
 
+  const categoryTotals = new Map<string, number>();
+  for (const inv of investments) {
+    const cat = inv.l1_category || "Other";
+    categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + inv.balance_usd);
+  }
+
   return (
-    <div>
-      <div className="mb-8">
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
         <Link
           href="/"
-          className="text-sm text-zinc-500 hover:text-amber-500 transition-colors"
+          className="inline-flex items-center gap-1.5 text-[13px] text-zinc-500 hover:text-zinc-300 transition-colors mb-4"
         >
-          &larr; Back to Portfolio
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M10 4l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Portfolio
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight mt-3">
+        <h1 className="text-2xl font-bold tracking-tight text-white">
           {person.name}
         </h1>
-        <p className="text-3xl font-bold text-white mt-1">
+        <p className="text-4xl font-bold font-mono text-white mt-1">
           {formatUSD(totalUsd)}
         </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800/60 text-xs uppercase tracking-widest text-zinc-500">
-              <th className="text-left py-3 pr-4">Investment</th>
-              <th className="text-left py-3 pr-4">Platform</th>
-              <th className="text-left py-3 pr-4">Type</th>
-              <th className="text-right py-3 pr-4">Balance</th>
-              <th className="text-right py-3 pr-4">USD</th>
-              <th className="text-right py-3 pr-4">APY (Gross)</th>
-              <th className="text-right py-3">Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {investments.map((inv, i) => {
-              const soda3Match =
-                inv.country === "Colombia"
-                  ? matchSoda3(inv.investment_name, soda3Data)
-                  : null;
-              const apyGross = soda3Match
-                ? parseFloat(soda3Match.rentabilidad_anual)
-                : null;
-              const apyNet =
-                apyGross !== null ? apyGross - (inv.ter || 0) : null;
+      {/* Category breakdown pills */}
+      {categoryTotals.size > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {Array.from(categoryTotals.entries())
+            .sort((a, b) => b[1] - a[1])
+            .map(([cat, amount]) => (
+              <div
+                key={cat}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50 border border-zinc-800/60"
+              >
+                <span className="text-xs font-medium text-zinc-400">{cat}</span>
+                <span className="text-xs font-mono text-zinc-500">
+                  {formatUSD(amount)}
+                </span>
+                <span className="text-[10px] font-mono text-zinc-600">
+                  {totalUsd > 0 ? ((amount / totalUsd) * 100).toFixed(0) : 0}%
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
 
-              return (
-                <tr
-                  key={i}
-                  className="border-b border-zinc-800/30 hover:bg-zinc-900/30"
-                >
-                  <td className="py-3 pr-4">
-                    <div className="font-medium text-zinc-200">
+      {/* Investment cards */}
+      <div className="space-y-2">
+        {investments.map((inv, i) => {
+          const soda3Match =
+            inv.country === "Colombia"
+              ? matchSoda3(inv.investment_name, soda3Data)
+              : null;
+          const apyGross = soda3Match
+            ? parseFloat(soda3Match.rentabilidad_anual)
+            : null;
+          const apyNet =
+            apyGross !== null ? apyGross - (inv.ter || 0) : null;
+          const pct = totalUsd > 0 ? ((inv.balance_usd / totalUsd) * 100).toFixed(1) : "0";
+
+          return (
+            <div
+              key={i}
+              className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/40 hover:border-zinc-700/50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[15px] font-medium text-zinc-200 truncate">
                       {inv.investment_name}
-                    </div>
-                    <div className="text-xs text-zinc-600">
+                    </p>
+                    {soda3Match && (
+                      <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                        SODA3
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-zinc-500">{inv.platform}</span>
+                    <span className="text-zinc-700">&middot;</span>
+                    <span className="text-xs text-zinc-600">
                       {inv.l1_category}
                       {inv.l2_category ? ` / ${inv.l2_category}` : ""}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4 text-zinc-400">{inv.platform}</td>
-                  <td className="py-3 pr-4">
-                    <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
-                      {inv.country || "—"}
                     </span>
-                  </td>
-                  <td className="py-3 pr-4 text-right font-mono text-zinc-300">
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[15px] font-bold font-mono text-white">
+                    {formatUSD(inv.balance_usd)}
+                  </p>
+                  <p className="text-xs font-mono text-zinc-600 mt-0.5">
                     {inv.balance_original.toLocaleString("en-US", {
                       maximumFractionDigits: 0,
                     })}{" "}
-                    <span className="text-zinc-600 text-xs">
-                      {inv.currency}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 text-right font-mono font-medium text-white">
-                    {formatUSD(inv.balance_usd)}
-                  </td>
-                  <td className="py-3 pr-4 text-right font-mono">
-                    {apyGross !== null ? (
-                      <div>
-                        <span
-                          className={
-                            apyGross >= 0 ? "text-emerald-400" : "text-red-400"
-                          }
-                        >
-                          {apyGross.toFixed(2)}%
-                        </span>
-                        {apyNet !== null && apyNet !== apyGross && (
-                          <div className="text-xs text-zinc-500">
-                            Net: {apyNet.toFixed(2)}%
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-zinc-600">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 text-right">
-                    {soda3Match ? (
-                      <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        SODA3
+                    {inv.currency}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-zinc-800/40">
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-zinc-800/60 text-zinc-500">
+                    {inv.country || "\u2014"}
+                  </span>
+                  <span className="text-[11px] font-mono text-zinc-600">
+                    {pct}% of portfolio
+                  </span>
+                </div>
+                <div className="text-right">
+                  {apyGross !== null ? (
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-xs font-mono font-semibold ${
+                          apyGross >= 0 ? "text-emerald-400" : "text-red-400"
+                        }`}
+                      >
+                        {apyGross.toFixed(2)}% APY
                       </span>
-                    ) : (
-                      <span className="text-xs text-zinc-600">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      {apyNet !== null && apyNet !== apyGross && (
+                        <span className="text-[11px] font-mono text-zinc-600">
+                          ({apyNet.toFixed(2)}% net)
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-zinc-700">No APY data</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {investments.length === 0 && (
+        <div className="p-8 text-center rounded-2xl bg-zinc-900/30 border border-zinc-800/40">
+          <p className="text-zinc-500 text-sm">No investments found.</p>
+        </div>
+      )}
     </div>
   );
 }
