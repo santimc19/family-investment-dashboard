@@ -36,13 +36,17 @@ async function fetchSoda3(): Promise<Soda3Record[]> {
   }
 }
 
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function matchSoda3(
   investmentName: string,
   soda3Data: Soda3Record[]
 ): Soda3Record | null {
-  const nameLC = investmentName.toLowerCase();
+  const nameLC = stripAccents(investmentName.toLowerCase());
   for (const record of soda3Data) {
-    const s3Name = (record.nombre_patrimonio || "").toLowerCase();
+    const s3Name = stripAccents((record.nombre_patrimonio || "").toLowerCase());
     if (
       nameLC.includes(s3Name.substring(0, 15)) ||
       s3Name.includes(nameLC.substring(0, 15))
