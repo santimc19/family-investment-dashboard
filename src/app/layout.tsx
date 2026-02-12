@@ -43,6 +43,7 @@ export default function RootLayout({
               {[
                 { href: "/", label: "Portfolio" },
                 { href: "/history", label: "History" },
+                { href: "/profitability", label: "Profitability" },
                 { href: "/audit", label: "Audit" },
               ].map((link) => (
                 <Link
