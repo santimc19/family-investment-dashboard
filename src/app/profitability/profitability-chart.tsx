@@ -235,10 +235,9 @@ export function ProfitabilityExplorer({ funds }: { funds: Fund[] }) {
                     fontSize: "13px",
                     padding: "10px 14px",
                   }}
-                  formatter={(value: number) => [
-                    `${value.toFixed(4)}%`,
-                    metric === "apy" ? "Annual" : metric === "monthly" ? "Monthly" : "Daily",
-                  ]}
+                  formatter={(value) =>
+                    `${Number(value).toFixed(4)}%`
+                  }
                   labelFormatter={(label) =>
                     new Date(String(label) + "T00:00:00").toLocaleDateString("en-US", {
                       month: "long",
