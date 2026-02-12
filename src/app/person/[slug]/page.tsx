@@ -14,12 +14,21 @@ type Soda3Record = {
 
 async function fetchSoda3(): Promise<Soda3Record[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
-      : "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/soda3`, {
-      next: { revalidate: 3600 },
+    const params = new URLSearchParams({
+      $order: "fecha_corte DESC",
+      $limit: "200",
+      $select:
+        "nombre_patrimonio,nombre_entidad,fecha_corte,rentabilidad_diaria,rentabilidad_mensual,rentabilidad_semestral,rentabilidad_anual,valor_unidad_operaciones",
     });
+    const res = await fetch(
+      `https://www.datos.gov.co/resource/qhpu-8ixx.json?${params}`,
+      {
+        headers: {
+          "X-App-Token": process.env.SODA3_APP_TOKEN || "",
+        },
+        next: { revalidate: 3600 },
+      }
+    );
     if (!res.ok) return [];
     return res.json();
   } catch {
