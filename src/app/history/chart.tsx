@@ -104,10 +104,9 @@ export function HistoryChart({
               fontSize: "13px",
               padding: "10px 14px",
             }}
-            formatter={(value: number, name: string) => [
-              `$${Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 })}`,
-              name,
-            ]}
+            formatter={(value) =>
+              `$${Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+            }
             labelFormatter={(label) =>
               new Date(String(label) + "T00:00:00").toLocaleDateString("en-US", {
                 month: "long",
